@@ -1,0 +1,321 @@
+# lupilup — Cursor Rules & Agent Guidelines
+
+> This file is read automatically by Cursor. Follow these rules in every response.
+> Do not ask clarifying questions covered here — just apply the rules.
+
+---
+
+## 1. Project overview
+
+lupilup is a mobile yarn organiser app for knitters and crocheters.
+Domain: lupilup.app
+Target audience: English-speaking, primarily Ravelry users.
+Goal: replace Ravelry's desktop-only stash management with a beautiful mobile-first experience.
+
+**Legacy names:** In older prompts and docs, *KnitKeep* / *Knitkeeper* refers to this same product (lupilup). Treat them as equivalent.
+
+---
+
+## 2. Tech stack
+
+| Layer | Technology | Notes |
+|---|---|---|
+| Framework | React Native + Expo (SDK 52+) | File-based routing via Expo Router |
+| Language | TypeScript (strict mode) | No `any`, no untyped callbacks |
+| Styling | NativeWind v4 | Tailwind classes in React Native |
+| Backend | Supabase | Auth, PostgreSQL, Storage |
+| AI Vision | Google ML Kit | Local OCR only |
+| AI Logic | Gemini 1.5 Flash | Label parsing, cloud only |
+| External API | Ravelry API | Read-only, OAuth 2.0 |
+| Navigation | Expo Router v3 | File-based, typed routes |
+
+---
+
+## 3. Folder structure
+
+```
+/app
+  /(auth)
+    login.tsx
+    magic-link.tsx
+  /(onboarding)
+    ravelry-import.tsx
+  /(tabs)
+    stash.tsx
+    projects.tsx
+    _layout.tsx
+  index.tsx                 ← splash / auth gate
+
+/components
+  /ui                       ← generic: Button, Input, Card, Badge
+  /stash                    ← YarnCard, StashList, FilterPills
+  /projects                 ← ProjectCard, PatternReader, FinishModal
+  /scanner                  ← ScannerCamera, ConfirmSheet, DuplicateWarning
+
+/lib
+  supabase.ts               ← Supabase client singleton
+  ravelry.ts                ← Ravelry API helpers
+  gemini.ts                 ← Gemini API helpers
+  units.ts                  ← metric/imperial conversion helpers
+  yarn.ts                   ← yarn business logic (blend formula etc.)
+
+/constants
+  colors.ts                 ← design tokens
+  fonts.ts
+  config.ts                 ← env vars, API endpoints
+
+/hooks
+  useAuth.ts
+  useStash.ts
+  useYarnCard.ts
+  useScanner.ts
+
+/types
+  yarn.ts
+  project.ts
+  user.ts
+```
+
+---
+
+## 4. Naming conventions
+
+| Thing | Convention | Example |
+|---|---|---|
+| Files (components) | PascalCase | `YarnCard.tsx` |
+| Files (hooks, lib) | camelCase | `useStash.ts` |
+| Files (screens) | kebab-case | `ravelry-import.tsx` |
+| Components | PascalCase | `YarnCard` |
+| Hooks | camelCase, prefix `use` | `useStash` |
+| Types/interfaces | PascalCase, no `I` prefix | `YarnEntry`, `Project` |
+| Supabase table rows | snake_case (matches DB) | `yarn_stash`, `current_weight_g` |
+| Constants | SCREAMING_SNAKE_CASE | `SUPABASE_URL` |
+| CSS/NativeWind | Tailwind utility classes only | No inline StyleSheet |
+
+---
+
+## 5. Design tokens
+
+Always import from `@/constants/colors`. Never hardcode hex values in components.
+
+```ts
+// constants/colors.ts
+export const colors = {
+  background:    '#F5F5F0',  // Oatmeal — app background
+  surface:       '#FFFFFF',  // Card / sheet background
+  border:        '#F0EDE8',  // Default card border
+  borderStrong:  '#E8E4DE',  // Input borders, dividers
+
+  textPrimary:   '#333333',  // Headings, numbers, names
+  textSecondary: '#999999',  // Labels, metadata
+  textTertiary:  '#CCCCCC',  // Placeholders, hints
+
+  accent:        '#D4A5A5',  // FAB + primary CTA buttons ONLY
+  progressBar:   '#C8C4BE',  // Progress bars — never use accent here
+
+  // Semantic
+  success:       '#7DB87D',
+  warning:       '#E0A840',
+  danger:        '#E08080',
+} as const
+```
+
+**Critical colour rules:**
+- `accent` (#D4A5A5) is used ONLY for the FAB button and primary CTA buttons
+- Numbers (grams, meters) are ALWAYS `textPrimary` (#333) — never accent
+- Progress bars are ALWAYS `progressBar` (#C8C4BE) — never accent
+- Yarn colour swatches use `color_hex` from the DB — not a system colour
+- Active filter pills use `textPrimary` background — not accent
+
+---
+
+## 6. Typography
+
+```ts
+// constants/fonts.ts
+export const fonts = {
+  serif:       'PlayfairDisplay_600SemiBold',  // Headings, yarn names, big numbers
+  sansRegular: 'Montserrat_400Regular',        // Body, labels, metadata
+  sansMedium:  'Montserrat_500Medium',         // Subheadings, button labels
+} as const
+```
+
+Usage rules:
+- Yarn names, screen titles, large numbers → `fonts.serif`
+- All other UI text → `fonts.sansRegular` or `fonts.sansMedium`
+- Minimum font size: 11px / 11sp
+- Never use font weights 600 or 700 in sans — use `sansMedium` (500) max
+
+---
+
+## 7. Database access
+
+Always use the Supabase client from `@/lib/supabase`. Never create a second client.
+
+```ts
+// lib/supabase.ts
+import { createClient } from '@supabase/supabase-js'
+import { Database } from '@/types/database'
+
+export const supabase = createClient<Database>(
+  process.env.EXPO_PUBLIC_SUPABASE_URL!,
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!
+)
+```
+
+**Query conventions:**
+- Always filter by `user_id` — never fetch all rows
+- Always handle errors explicitly — no silent failures
+- Use `.order('created_at', { ascending: false })` as default sort (newest first)
+- Optimistic UI updates where possible — update local state before awaiting DB
+
+```ts
+// Good
+const { data, error } = await supabase
+  .from('yarn_stash')
+  .select('*')
+  .eq('user_id', user.id)
+  .order('created_at', { ascending: false })
+
+if (error) throw error
+
+// Bad — never do this
+const { data } = await supabase.from('yarn_stash').select('*')
+```
+
+---
+
+## 8. Ravelry API
+
+Base URL: `https://api.ravelry.com`
+Auth: OAuth 2.0, token stored in `user_settings.ravelry_token`
+**Read-only. Never write to Ravelry.**
+
+Key endpoints:
+```
+GET /people/{username}/stash.json          ← import stash (onboarding)
+GET /yarns/search.json?query={brand+name}  ← yarn data lookup (scanner enrichment)
+GET /yarns/{id}.json                       ← full yarn details
+```
+
+Yarn enrichment flow in scanner:
+1. ML Kit extracts text locally
+2. Gemini identifies brand + line name
+3. `GET /yarns/search.json?query=` to fetch: yardage, grams, fiber content, needle size
+4. Pre-fill confirm screen with Ravelry data
+5. User confirms weight of their specific skein
+
+---
+
+## 9. AI scanner logic
+
+**Two-stage pipeline — do not collapse into one:**
+
+Stage 1 (local, no network):
+- `expo-camera` captures image
+- Google ML Kit performs OCR → returns raw text string
+
+Stage 2 (cloud, costs money):
+- Send OCR text to Gemini 1.5 Flash
+- Prompt: extract brand, line name, colour, lot number
+- Then fetch full data from Ravelry yarn DB (see §8)
+
+**Scan counter:**
+- Every camera scan increments `user_settings.ai_scans_used`
+- Free tier limit: 10 scans lifetime (not per month)
+- Manual entry (no camera) → does NOT increment counter
+- Check limit BEFORE opening camera — show upgrade prompt if at 10
+
+---
+
+## 10. Business logic rules
+
+**Yarn weight tracking:**
+- `original_weight_g` — set once at creation, never updated
+- `current_weight_g` — updated when user weighs leftover after finishing a project
+- There is no "allocated" weight — yarn is not reserved for projects
+- Meters remaining = `current_weight_g / 100 * length_m_per_100g`
+
+**Blend formula (harmonic mean):**
+```ts
+// lib/yarn.ts
+export function blendYardage(lengths: number[]): number {
+  return 1 / lengths.reduce((sum, l) => sum + 1 / l, 0)
+}
+// e.g. blendYardage([200, 400]) → 133.3 m/100g
+```
+
+**Finish project flow:**
+1. User taps "Mark as finished"
+2. Show sheet: one weight input per yarn in project
+3. Input: clean number field, "g" unit label outside right — no placeholder text inside field
+4. Each entered weight updates `current_weight_g` for that yarn entry
+5. Empty field = skip that yarn, no update
+6. "Skip" button = close project with no stash changes
+
+**Duplicate detection in scanner:**
+- Same brand + colour + lot → "Already in your stash" warning (red)
+  - Options: Add another skein / Update existing weight / Discard
+- Same brand + colour, different lot → "Different lot" warning (yellow)
+  - Always add as separate entry — never merge different lots
+- Same brand + colour, no lot data → add silently
+
+**Unit system:**
+- Default: metric (m / g)
+- Auto-detected from Ravelry import (`length_unit` field in API response)
+- Always overridable in Account Settings
+- Never ask during onboarding
+
+---
+
+## 11. UX copy rules
+
+- Language: English only (app UI)
+- Tone: warm, like a knitter friend — not a SaaS product
+- "Yarn" is the generic term — not "skein" in general UI context
+- "Stash" not "inventory" or "collection"
+- Empty states always have a call to action: "Add your first yarn" not "No items"
+- Destructive actions always require confirmation
+
+Key strings (use exactly as written):
+```
+Stash screen title:     "Yarn"
+Search placeholder:     "Search by brand, fiber, color..."
+Empty stash:            "Add your first yarn"
+Scan CTA:               "Scan label"
+Camera hint:            "Point at the yarn label"
+Free scans warning:     "3 free scans left"
+Scans exhausted:        "You've used all 10 free scans"
+Upgrade CTA:            "Get unlimited scans with Premium"
+Ravelry connect:        "Connect Ravelry"
+Ravelry skip:           "I'll do this later"
+Finish project:         "Mark as finished"
+Leftover prompt:        "How much yarn is left?"
+Finish + save:          "Update stash & finish"
+Finish skip:            "Skip — I'll update later"
+Need more status:       "Need more yarn"
+Copy for search:        "Copy for search"
+```
+
+---
+
+## 12. What NOT to do
+
+- Never use `StyleSheet.create` — use NativeWind classes only
+- Never hardcode colours — always use `colors` from `@/constants/colors`
+- Never use `accent` colour for numbers, progress bars, or filter pills
+- Never write to Ravelry API — read-only
+- Never fetch yarn_stash without `user_id` filter
+- Never use `any` type
+- Never create multiple Supabase client instances
+- Never show scan counter as "per month" — it's lifetime for free tier
+- Never use "allocated" / "reserved" yarn concept — it doesn't exist in the UX
+- Never use weight of finished garment to calculate yarn used — use leftover skein weight
+- Never merge two yarn entries with different lot numbers
+
+---
+
+## 13. Git & pull requests
+
+- **Branches:** Put all commits on a **separate branch** (feature/fix/chore — name clearly). **Never commit to `main`** unless the user gives **explicit, direct** instruction to do so.
+- **After push to GitHub:** Provide **PR-ready text in English**, formatted as **Markdown** (title line + description body: what changed, why, how to test if relevant). The user will paste or adapt it when opening the pull request.
