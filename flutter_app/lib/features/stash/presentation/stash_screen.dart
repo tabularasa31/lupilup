@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lupilup_flutter/core/theme/app_theme.dart';
 import 'package:lupilup_flutter/core/widgets/app_scaffold.dart';
 import 'package:lupilup_flutter/core/widgets/section_card.dart';
 import 'package:lupilup_flutter/features/stash/data/stash_repository.dart';
 import 'package:lupilup_flutter/features/stash/data/yarn_stash_item.dart';
 import 'package:lupilup_flutter/features/stash/logic/stash_providers.dart';
+import 'package:lupilup_flutter/features/stash/presentation/widgets/yarn_card.dart';
 
 class StashScreen extends ConsumerWidget {
   const StashScreen({super.key});
@@ -16,52 +17,35 @@ class StashScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final items = ref.watch(filteredStashProvider);
     final filter = ref.watch(stashFilterProvider);
-    final shouldShowAddButton = items.maybeWhen(
-      data: (rows) => rows.isNotEmpty,
-      orElse: () => false,
-    );
+    final totalItems = ref.watch(stashStreamProvider).valueOrNull?.length ?? 0;
 
     return AppScaffold(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-      floatingActionButton: shouldShowAddButton
-          ? FloatingActionButton.extended(
-              backgroundColor: AppColors.accent,
-              foregroundColor: Colors.white,
-              onPressed: () => context.push('/stash/add-edit'),
-              label: const Text('Add yarn'),
-              icon: const Icon(Icons.add),
-            )
-          : null,
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _StashHeader(),
-          const SizedBox(height: 20),
+          _StashHeader(count: totalItems),
+          const SizedBox(height: 22),
           Container(
             decoration: BoxDecoration(
               color: AppColors.surface,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(22),
               border: Border.all(color: AppColors.borderStrong),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x0A241A17),
-                  blurRadius: 18,
-                  offset: Offset(0, 8),
-                ),
-              ],
             ),
             child: TextField(
-              decoration: const InputDecoration(
-                hintText: 'Search brand, yarn, color, fiber, lot',
-                prefixIcon: Icon(Icons.search, size: 22),
+              decoration: InputDecoration(
+                hintText: 'Search by brand, fiber, color...',
+                hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                prefixIcon: const Icon(Icons.search, size: 22),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
               ),
               onChanged: (value) {
                 ref.read(stashFilterProvider.notifier).state = StashFilter(
-                      sources: filter.sources,
                       types: filter.types,
                       search: value,
                     );
@@ -113,27 +97,51 @@ class StashScreen extends ConsumerWidget {
 }
 
 class _StashHeader extends StatelessWidget {
-  const _StashHeader();
+  const _StashHeader({required this.count});
+
+  final int count;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(
-          'Stash',
-          style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                fontSize: 38,
-                height: 1,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'my stash',
+                style: GoogleFonts.ptSerif(
+                  color: const Color(0xFFBBBBBB),
+                  fontSize: 10,
+                  height: 1,
+                  letterSpacing: 0.2,
+                ),
               ),
+              const SizedBox(height: 6),
+              Text(
+                'Yarn',
+                style: GoogleFonts.playfairDisplay(
+                  color: AppColors.textPrimary,
+                  fontSize: 36,
+                  fontWeight: FontWeight.w600,
+                  height: 0.96,
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          'A calm overview of every skein, scan, and future project pairing.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
-                height: 1.55,
-              ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Text(
+            '$count',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+          ),
         ),
       ],
     );
@@ -148,62 +156,41 @@ class _FilterBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(stashFilterProvider.notifier);
+    const pillSpacing = SizedBox(width: 8);
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
           _FilterPill(
             label: 'All',
-            selected: filter.sources.isEmpty && filter.types.isEmpty,
+            selected: filter.types.isEmpty,
             onTap: () => notifier.state = const StashFilter(),
           ),
-          const SizedBox(width: 8),
-          for (final source in YarnSource.values) ...[
-            _FilterPill(
-              label: source.name,
-              selected: filter.sources.contains(source),
-              onTap: () {
-                final selected = !filter.sources.contains(source);
-                final sources = {...filter.sources};
-                if (selected) {
-                  sources.add(source);
-                } else {
-                  sources.remove(source);
-                }
-                notifier.state = StashFilter(
-                  sources: sources,
-                  types: filter.types,
-                  search: filter.search,
-                );
-              },
-            ),
-            const SizedBox(width: 8),
-          ],
+          pillSpacing,
           for (final type in YarnType.values) ...[
             _FilterPill(
-              label: type.name,
-              selected: filter.types.contains(type),
+              label: _typeLabel(type),
+              selected: filter.types.length == 1 && filter.types.contains(type),
               onTap: () {
-                final selected = !filter.types.contains(type);
-                final types = {...filter.types};
-                if (selected) {
-                  types.add(type);
-                } else {
-                  types.remove(type);
-                }
                 notifier.state = StashFilter(
-                  sources: filter.sources,
-                  types: types,
+                  types: {type},
                   search: filter.search,
                 );
               },
             ),
-            const SizedBox(width: 8),
+            pillSpacing,
           ],
         ],
       ),
     );
   }
+
+  String _typeLabel(YarnType type) => switch (type) {
+        YarnType.skein => 'Skeins',
+        YarnType.bobbin => 'Bobbins',
+        YarnType.blend => 'Blends',
+      };
 }
 
 class _FilterPill extends StatelessWidget {
@@ -226,27 +213,19 @@ class _FilterPill extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFF6D7D6) : AppColors.surface,
+          color: selected ? AppColors.textPrimary : AppColors.surface,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: selected ? const Color(0xFFF1C1BF) : AppColors.borderStrong,
+            color: selected ? AppColors.textPrimary : AppColors.borderStrong,
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (selected) ...[
-              const Icon(Icons.check_rounded, size: 16, color: AppColors.textPrimary),
-              const SizedBox(width: 6),
-            ],
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  ),
-            ),
-          ],
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: selected ? Colors.white : const Color(0xFFAAAAAA),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
         ),
       ),
     );
@@ -260,99 +239,29 @@ class _StashCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final date = DateFormat('MMM d').format(item.createdAt);
-    return SectionCard(
-      padding: const EdgeInsets.fromLTRB(18, 18, 14, 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.title,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontSize: 22,
-                            height: 1.15,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      [
-                        if ((item.colorName ?? '').isNotEmpty) item.colorName,
-                        if ((item.lot ?? '').isNotEmpty) 'lot ${item.lot}',
-                      ].whereType<String>().join(' · ').ifEmpty('Added $date'),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-              PopupMenuButton<String>(
-                color: AppColors.surface,
-                onSelected: (value) async {
-                  if (value == 'edit') {
-                    context.push('/stash/add-edit?id=${Uri.encodeComponent(item.id)}');
-                  } else if (value == 'delete') {
-                    await ref.read(stashRepositoryProvider).delete(item.id);
-                  }
-                },
-                itemBuilder: (context) => const [
-                  PopupMenuItem(value: 'edit', child: Text('Edit')),
-                  PopupMenuItem(value: 'delete', child: Text('Delete')),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _MetaPill(label: item.source.name),
-              _MetaPill(label: item.type.name),
-              if (item.currentWeightG != null) _MetaPill(label: '${item.currentWeightG} g'),
-              if (item.lengthMPer100g != null) _MetaPill(label: '${item.lengthMPer100g} m/100g'),
-            ],
-          ),
-          if ((item.fiberContent ?? '').isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(
-              item.fiberContent!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.4),
-            ),
-          ],
+    return YarnCard(
+      item: item,
+      onTap: () => context.push('/stash/add-edit?id=${Uri.encodeComponent(item.id)}'),
+      trailing: PopupMenuButton<String>(
+        color: AppColors.surface,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 120),
+        icon: const Icon(
+          Icons.more_horiz_rounded,
+          color: AppColors.textSecondary,
+          size: 18,
+        ),
+        onSelected: (value) async {
+          if (value == 'edit') {
+            context.push('/stash/add-edit?id=${Uri.encodeComponent(item.id)}');
+          } else if (value == 'delete') {
+            await ref.read(stashRepositoryProvider).delete(item.id);
+          }
+        },
+        itemBuilder: (context) => const [
+          PopupMenuItem(value: 'edit', child: Text('Edit')),
+          PopupMenuItem(value: 'delete', child: Text('Delete')),
         ],
-      ),
-    );
-  }
-}
-
-class _MetaPill extends StatelessWidget {
-  const _MetaPill({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8F4F0),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFF0E4DC)),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
       ),
     );
   }
@@ -400,7 +309,7 @@ class _StashStatusCard extends StatelessWidget {
                   Text(
                     eyebrow!,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.accent,
+                          color: AppColors.textSecondary,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.2,
                         ),
@@ -435,8 +344,4 @@ class _StashStatusCard extends StatelessWidget {
       ),
     );
   }
-}
-
-extension on String {
-  String ifEmpty(String fallback) => trim().isEmpty ? fallback : this;
 }

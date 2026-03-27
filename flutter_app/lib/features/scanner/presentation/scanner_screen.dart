@@ -73,10 +73,11 @@ class ScannerScreen extends ConsumerWidget {
                       icon: const Icon(Icons.photo_library_outlined),
                       label: const Text('Choose photo draft'),
                     ),
-                    const SizedBox(height: 10),
-                    TextButton(
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
                       onPressed: () => context.push('/stash/add-edit'),
-                      child: const Text('Add yarn manually instead'),
+                      icon: const Icon(Icons.edit_outlined),
+                      label: const Text('Add manually'),
                     ),
                   ],
                 ),
@@ -123,10 +124,15 @@ class ScannerScreen extends ConsumerWidget {
                       child: const Text('Open manual editor'),
                     ),
                     const SizedBox(height: 8),
-                    TextButton(
+                    OutlinedButton(
                       onPressed: () =>
                           ref.read(scannerControllerProvider.notifier).clear(),
-                      child: const Text('Scan another label'),
+                      child: const Text('Start a new scan'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: () => context.push('/stash/add-edit'),
+                      child: const Text('Add manually instead'),
                     ),
                   ],
                 ),
