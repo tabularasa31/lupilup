@@ -26,5 +26,7 @@ SUPABASE_RAVELRY_EXCHANGE_FUNCTION=ravelry-exchange-token
   - `lupilup://auth/callback`
   - `lupilup://oauth/ravelry`
 - The Supabase schema and the `ravelry-exchange-token` edge function are reused from the existing project.
+- The centered Flutter FAB currently opens `Scan`; manual stash entry is available from the scanner flow.
+- The stash repository currently uses Supabase realtime plus a small polling fallback to keep iOS and Android in sync during cross-device edits.
+- A follow-up Supabase migration exists for `projects.finished_at` and should be applied in the live project.
 - The current React Native app remains in the repo as migration reference until the Flutter client fully replaces it.
-

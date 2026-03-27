@@ -31,6 +31,15 @@ Goal: replace Ravelry's desktop-only stash management with a beautiful mobile-fi
 
 ---
 
+## 2b. Git workflow
+
+- Never start a new feature from an old working branch.
+- Before any new feature or fix: switch to `main`, pull the latest `origin/main`, then create a new feature branch from that updated `main`.
+- Never commit directly to `main`.
+- Do not reuse yesterday's branch for today's task, even if the scope feels related.
+
+---
+
 ## 3. Folder structure
 
 ```

@@ -4,14 +4,15 @@ Last updated: 2026-03-27
 
 ## Now
 
+- Apply the `finished_at` projects migration to the live Supabase project
 - Improve `Scanner` screen UX and visual quality
 - Revisit add/edit yarn form polish
 - Revisit project detail and project creation polish
-- Refresh the GitHub PR title and description so they match the real migration scope
 
 ## Next
 
 - Restore production OCR flow for scanner
+- Decide whether the temporary stash polling fallback should remain, be tuned, or be replaced after realtime behaviour is verified in production
 - Add better empty, error, and success states where the app still feels too technical
 - Run a structured smoke test pass on both iOS and Android
 - Document release setup for iOS signing and Android release config

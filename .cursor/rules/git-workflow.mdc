@@ -7,6 +7,8 @@ alwaysApply: true
 
 ## Branching
 - NEVER commit to `main` directly
+- Before starting any new feature or fix, first update local `main` from `origin/main`
+- Always create a fresh feature branch from the updated `main`; do not reuse the previous working branch for a new task
 - Always create a feature branch before committing: `feature/`, `fix/`, or `chore/` prefix
 - Branch name should be short and descriptive in kebab-case
 

@@ -39,3 +39,43 @@ Why:
 - The old single `progress.md` had drifted away from the real project state
 - The migration now spans product, engineering, and release work
 - A small docs hub is easier to maintain than one long log file
+
+## 2026-03-27 — `+` opens Scan, with manual add inside the scanner flow
+
+The centered FAB now opens `Scan` by default, and the `Scan` screen provides a clear `Add manually` fallback into stash editor.
+
+Why:
+
+- Scan remains the primary product entrypoint for adding yarn
+- Manual entry still stays easy to reach when scan is not the right path
+- This keeps the bottom navigation minimal without losing either workflow
+
+## 2026-03-27 — Stash and project UI now follow one compact card system
+
+The `Stash` and `Projects` lists now use closely related compact card patterns instead of separate visual languages.
+
+Why:
+
+- The product feels more coherent when stash and project lists behave like one system
+- Shared spacing, hierarchy, and right-side metrics make scanning easier
+- This better matches the current Flutter direction than the earlier mixed card styles
+
+## 2026-03-27 — Use a stash polling fallback in addition to realtime
+
+The stash repository now listens to Supabase realtime updates and also periodically refetches stash data as a reconciliation fallback.
+
+Why:
+
+- Realtime behaviour was not consistently updating both devices during cross-device testing
+- A lightweight polling fallback improves trust in shared stash state
+- This is safer for now than depending entirely on perfect websocket delivery
+
+## 2026-03-27 — `finished_at` is optional until the live schema catches up
+
+The app now supports a `finished_at` timestamp for projects, but save operations gracefully fall back when the live Supabase schema does not yet contain that column.
+
+Why:
+
+- We wanted to ship the product behaviour now without blocking on immediate DB rollout
+- Completed projects should still save correctly even before the migration is applied
+- This keeps the UI and data model moving forward while protecting the live app
