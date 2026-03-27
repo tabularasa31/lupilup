@@ -1,0 +1,26 @@
+---
+description: Git workflow — branch naming, push, and PR text rules
+alwaysApply: true
+---
+
+# Git Workflow
+
+## Branching
+- NEVER commit to `main` directly
+- Always create a feature branch before committing: `feature/`, `fix/`, or `chore/` prefix
+- Branch name should be short and descriptive in kebab-case
+
+## Push & PR
+- After every completed feature or fix: push to GitHub on the feature branch
+- After pushing, always provide PR-ready text in **English**, formatted as **Markdown**:
+
+```
+## Summary
+- bullet points of what changed
+
+## Test plan
+- [ ] what to verify
+```
+
+## Progress log
+- After each push, update `progress.md` in the repo root with the current status
