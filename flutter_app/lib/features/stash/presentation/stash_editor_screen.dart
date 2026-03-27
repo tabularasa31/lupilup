@@ -18,6 +18,16 @@ class StashEditorScreen extends ConsumerWidget {
       return const _StashEditorForm();
     }
 
+    final stash = ref.watch(stashStreamProvider);
+    final liveItem = stash.valueOrNull
+        ?.where((item) => item.id == itemId)
+        .cast<YarnStashItem?>()
+        .firstOrNull;
+
+    if (liveItem != null) {
+      return _StashEditorForm(initialItem: liveItem);
+    }
+
     final item = ref.watch(stashItemProvider(itemId!));
     return item.when(
       data: (value) => _StashEditorForm(initialItem: value),
@@ -79,6 +89,40 @@ class _StashEditorFormState extends ConsumerState<_StashEditorForm> {
     _originalWeight.dispose();
     _lot.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _StashEditorForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final previous = oldWidget.initialItem;
+    final next = widget.initialItem;
+    if (previous == null || next == null) return;
+    if (identical(previous, next)) return;
+    if (previous.id != next.id ||
+        previous.type != next.type ||
+        previous.brand != next.brand ||
+        previous.name != next.name ||
+        previous.colorName != next.colorName ||
+        previous.fiberContent != next.fiberContent ||
+        previous.lengthMPer100g != next.lengthMPer100g ||
+        previous.currentWeightG != next.currentWeightG ||
+        previous.originalWeightG != next.originalWeightG ||
+        previous.lot != next.lot) {
+      _syncFromItem(next);
+    }
+  }
+
+  void _syncFromItem(YarnStashItem item) {
+    _brand.text = item.brand ?? '';
+    _name.text = item.name ?? '';
+    _colorName.text = item.colorName ?? '';
+    _fiberContent.text = item.fiberContent ?? '';
+    _length.text = item.lengthMPer100g?.toString() ?? '';
+    _currentWeight.text = item.currentWeightG?.toString() ?? '';
+    _originalWeight.text = item.originalWeightG?.toString() ?? '';
+    _lot.text = item.lot ?? '';
+    _type = item.type;
+    setState(() {});
   }
 
   Future<void> _save() async {

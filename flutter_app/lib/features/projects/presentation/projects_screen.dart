@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:lupilup_flutter/core/theme/app_theme.dart';
 import 'package:lupilup_flutter/core/widgets/app_scaffold.dart';
@@ -135,77 +136,125 @@ class _ProjectCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final createdAt = DateFormat('MMM d').format(project.createdAt);
+    final finishedAt = project.finishedAt == null
+        ? null
+        : DateFormat('MMM d').format(project.finishedAt!);
     final accentColor = switch (project.status) {
       ProjectStatus.active => const Color(0xFFD9C1BA),
       ProjectStatus.finished => const Color(0xFFD6E7D2),
       ProjectStatus.onHold => const Color(0xFFE9DFC7),
     };
 
-    return SectionCard(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: accentColor,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                alignment: Alignment.center,
-                child: Icon(
-                  switch (project.status) {
-                    ProjectStatus.active => Icons.auto_awesome_motion_rounded,
-                    ProjectStatus.finished => Icons.check_rounded,
-                    ProjectStatus.onHold => Icons.pause_rounded,
-                  },
-                  color: AppColors.textPrimary,
-                ),
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(24),
+      child: Ink(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppColors.borderStrong),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: accentColor,
+                borderRadius: BorderRadius.circular(11),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      project.title,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontSize: 22,
-                            height: 1.15,
-                          ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      'Started $createdAt',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.arrow_outward_rounded,
+              alignment: Alignment.center,
+              child: Icon(
+                switch (project.status) {
+                  ProjectStatus.active => Icons.auto_awesome_motion_rounded,
+                  ProjectStatus.finished => Icons.check_rounded,
+                  ProjectStatus.onHold => Icons.pause_rounded,
+                },
+                color: AppColors.textPrimary,
                 size: 20,
-                color: AppColors.textSecondary,
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _ProjectMetaPill(label: _statusLabel(project.status)),
-              _ProjectMetaPill(label: '${project.yarnIds.length} yarns linked'),
-              _ProjectMetaPill(label: 'Row ${project.currentRow}'),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    project.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.playfairDisplay(
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      height: 1.08,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Started $createdAt',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                          height: 1.2,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _metaLine(finishedAt),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textTertiary,
+                          fontSize: 11,
+                          height: 1.2,
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      minHeight: 6,
+                      value: _rowProgress(project),
+                      backgroundColor: const Color(0xFFF1EEE8),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        _progressColor(project.status),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${project.currentRow}',
+                  style: GoogleFonts.playfairDisplay(
+                    color: AppColors.textPrimary,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                    height: 1,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'current row',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textTertiary,
+                        fontSize: 11,
+                        height: 1.2,
+                      ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -215,31 +264,24 @@ class _ProjectCard extends StatelessWidget {
         ProjectStatus.finished => 'Finished',
         ProjectStatus.onHold => 'On hold',
       };
-}
 
-class _ProjectMetaPill extends StatelessWidget {
-  const _ProjectMetaPill({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8F4F0),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFF0E4DC)),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
-      ),
-    );
+  String _metaLine(String? finishedAt) {
+    if (project.status == ProjectStatus.finished && finishedAt != null) {
+      return 'Finished $finishedAt · ${project.yarnIds.length} yarns linked';
+    }
+    return '${_statusLabel(project.status)} · ${project.yarnIds.length} yarns linked';
   }
+
+  double _rowProgress(Project project) {
+    if (project.currentRow <= 0) return 0;
+    return (project.currentRow / 100).clamp(0, 1).toDouble();
+  }
+
+  Color _progressColor(ProjectStatus status) => switch (status) {
+        ProjectStatus.active => AppColors.progressBar,
+        ProjectStatus.finished => const Color(0xFFB9D2B4),
+        ProjectStatus.onHold => const Color(0xFFD8CEB5),
+      };
 }
 
 class _ProjectsStatusCard extends StatelessWidget {

@@ -9,6 +9,7 @@ class Project {
     required this.currentRow,
     required this.yarnIds,
     required this.createdAt,
+    this.finishedAt,
   });
 
   final String id;
@@ -18,6 +19,7 @@ class Project {
   final int currentRow;
   final List<String> yarnIds;
   final DateTime createdAt;
+  final DateTime? finishedAt;
 
   factory Project.fromMap(Map<String, dynamic> map) {
     final rawStatus = map['status'] as String? ?? 'active';
@@ -36,6 +38,7 @@ class Project {
           .toList(),
       createdAt: DateTime.tryParse(map['created_at'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
+      finishedAt: DateTime.tryParse(map['finished_at'] as String? ?? ''),
     );
   }
 
@@ -51,6 +54,7 @@ class Project {
       },
       'current_row': currentRow,
       'yarn_ids': yarnIds,
+      'finished_at': finishedAt?.toIso8601String(),
     };
   }
 
@@ -59,6 +63,7 @@ class Project {
     ProjectStatus? status,
     int? currentRow,
     List<String>? yarnIds,
+    Object? finishedAt = _unset,
   }) {
     return Project(
       id: id,
@@ -68,7 +73,9 @@ class Project {
       currentRow: currentRow ?? this.currentRow,
       yarnIds: yarnIds ?? this.yarnIds,
       createdAt: createdAt,
+      finishedAt: identical(finishedAt, _unset) ? this.finishedAt : finishedAt as DateTime?,
     );
   }
 }
 
+const Object _unset = Object();
