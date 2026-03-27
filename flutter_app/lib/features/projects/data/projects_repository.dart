@@ -17,6 +17,16 @@ class ProjectsRepository {
         (error.code == '42P01' || error.message.contains('public.projects'));
   }
 
+  bool _isMissingFinishedAtColumn(Object error) {
+    if (error is! PostgrestException) return false;
+    final details = '${error.details}';
+    final hint = '${error.hint}';
+    return error.code == 'PGRST204' ||
+        error.message.contains('finished_at') ||
+        details.contains('finished_at') ||
+        hint.contains('finished_at');
+  }
+
   String _requireUserId() {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) {
@@ -82,13 +92,20 @@ class ProjectsRepository {
 
   Future<void> saveProject(Project project) async {
     final userId = _requireUserId();
+    final payload = {
+      ...project.toMap(),
+      'user_id': userId,
+    };
     try {
-      await _supabase.from('projects').upsert({
-        ...project.toMap(),
-        'user_id': userId,
-      }, onConflict: 'id');
+      await _supabase.from('projects').upsert(payload, onConflict: 'id');
     } catch (error) {
       if (_isMissingProjectsTable(error)) {
+        return;
+      }
+      if (_isMissingFinishedAtColumn(error)) {
+        final legacyPayload = Map<String, dynamic>.from(payload)
+          ..remove('finished_at');
+        await _supabase.from('projects').upsert(legacyPayload, onConflict: 'id');
         return;
       }
       rethrow;
@@ -109,6 +126,7 @@ class ProjectsRepository {
       currentRow: currentRow,
       yarnIds: yarnIds,
       createdAt: DateTime.now(),
+      finishedAt: null,
     );
     await saveProject(project);
     return project;
@@ -138,7 +156,12 @@ class ProjectsRepository {
       );
     }
 
-    await saveProject(project.copyWith(status: ProjectStatus.finished));
+    await saveProject(
+      project.copyWith(
+        status: ProjectStatus.finished,
+        finishedAt: DateTime.now(),
+      ),
+    );
   }
 }
 

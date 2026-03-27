@@ -9,6 +9,7 @@ import 'package:lupilup_flutter/features/projects/data/projects_repository.dart'
 import 'package:lupilup_flutter/features/projects/logic/project_providers.dart';
 import 'package:lupilup_flutter/features/stash/data/stash_repository.dart';
 import 'package:lupilup_flutter/features/stash/data/yarn_stash_item.dart';
+import 'package:lupilup_flutter/features/stash/logic/stash_providers.dart';
 
 class ProjectDetailScreen extends ConsumerWidget {
   const ProjectDetailScreen({required this.projectId, super.key});
@@ -84,10 +85,18 @@ class _ProjectDetailViewState extends ConsumerState<_ProjectDetailView> {
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
+      final shouldStampFinished = _status == ProjectStatus.finished &&
+          widget.project.status != ProjectStatus.finished;
+      final shouldClearFinished = _status != ProjectStatus.finished;
       final updatedProject = widget.project.copyWith(
         title: _title.text.trim(),
         currentRow: int.tryParse(_currentRow.text.trim()) ?? 0,
         status: _status,
+        finishedAt: shouldClearFinished
+            ? null
+            : shouldStampFinished
+                ? DateTime.now()
+                : widget.project.finishedAt,
       );
       await ref.read(projectsRepositoryProvider).saveProject(
             updatedProject,
@@ -128,6 +137,10 @@ class _ProjectDetailViewState extends ConsumerState<_ProjectDetailView> {
             ),
             leftoverWeightByYarnId: leftovers,
           );
+      ref.invalidate(stashStreamProvider);
+      for (final yarnId in widget.project.yarnIds) {
+        ref.invalidate(stashItemProvider(yarnId));
+      }
       ref.invalidate(projectsStreamProvider);
       ref.invalidate(projectProvider(widget.project.id));
       if (!mounted) return;

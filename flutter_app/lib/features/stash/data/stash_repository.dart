@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lupilup_flutter/core/providers/supabase_providers.dart';
 import 'package:lupilup_flutter/features/stash/domain/duplicate_detection.dart';
@@ -24,26 +26,96 @@ class StashRepository {
     return userId;
   }
 
-  Stream<List<YarnStashItem>> watchStash() async* {
+  Stream<List<YarnStashItem>> watchStash() {
     final userId = _requireUserId();
-    try {
-      yield* _supabase
+    return Stream.multi((controller) async {
+      List<YarnStashItem>? lastEmitted;
+      var closed = false;
+
+      void emitIfChanged(List<YarnStashItem> rows) {
+        final normalized = [...rows]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        if (_sameItems(lastEmitted, normalized)) return;
+        lastEmitted = normalized;
+        if (!closed) {
+          controller.add(normalized);
+        }
+      }
+
+      Future<void> refreshFromFetch() async {
+        try {
+          emitIfChanged(await fetchStash());
+        } catch (error, stackTrace) {
+          if (_isMissingYarnStashTable(error)) {
+            emitIfChanged(const []);
+            return;
+          }
+          if (!closed) {
+            controller.addError(error, stackTrace);
+          }
+        }
+      }
+
+      final realtime = _supabase
           .from('yarn_stash')
           .stream(primaryKey: ['id'])
           .eq('user_id', userId)
-          .map(
-            (rows) => rows
-                .map((row) => YarnStashItem.fromMap(row))
-                .toList()
-              ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
-          );
-    } catch (error) {
-      if (_isMissingYarnStashTable(error)) {
-        yield const [];
-        return;
+          .listen(
+        (rows) {
+          emitIfChanged(rows.map((row) => YarnStashItem.fromMap(row)).toList());
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (_isMissingYarnStashTable(error)) {
+            emitIfChanged(const []);
+            return;
+          }
+          if (!closed) {
+            controller.addError(error, stackTrace);
+          }
+        },
+      );
+
+      await refreshFromFetch();
+      final timer = Timer.periodic(
+        const Duration(seconds: 3),
+        (_) => refreshFromFetch(),
+      );
+
+      controller.onCancel = () async {
+        closed = true;
+        timer.cancel();
+        await realtime.cancel();
+      };
+    });
+  }
+
+  bool _sameItems(List<YarnStashItem>? previous, List<YarnStashItem> next) {
+    if (previous == null || previous.length != next.length) return false;
+    for (var i = 0; i < previous.length; i++) {
+      if (_itemSignature(previous[i]) != _itemSignature(next[i])) {
+        return false;
       }
-      rethrow;
     }
+    return true;
+  }
+
+  String _itemSignature(YarnStashItem item) {
+    return [
+      item.id,
+      item.userId,
+      item.type.name,
+      item.source.name,
+      item.createdAt.toIso8601String(),
+      item.brand ?? '',
+      item.name ?? '',
+      item.colorName ?? '',
+      item.colorHex ?? '',
+      item.fiberContent ?? '',
+      '${item.lengthMPer100g ?? ''}',
+      '${item.currentWeightG ?? ''}',
+      '${item.originalWeightG ?? ''}',
+      item.lot ?? '',
+      item.parentIds.join(','),
+    ].join('|');
   }
 
   Future<List<YarnStashItem>> fetchStash() async {
